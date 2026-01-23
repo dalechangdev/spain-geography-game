@@ -1,5 +1,3 @@
-import { Region } from 'react-native-maps';
-
 /**
  * Map constants for Spain geography app
  */
@@ -15,14 +13,17 @@ export const SPAIN_BOUNDS = {
 };
 
 /**
- * Default region showing all of Spain
+ * Center of Spain (Madrid area)
  */
-export const SPAIN_REGION: Region = {
-  latitude: 40.4168, // Approximate center of Spain (Madrid area)
+export const SPAIN_CENTER = {
+  latitude: 40.4168,
   longitude: -3.7038,
-  latitudeDelta: 8.0, // Shows most of Spain
-  longitudeDelta: 8.0,
 };
+
+/**
+ * Default zoom level to show all of Spain
+ */
+export const DEFAULT_ZOOM = 5;
 
 /**
  * Zoom levels for different geographic features
