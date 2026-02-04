@@ -1,4 +1,4 @@
-import { DEFAULT_ZOOM, SPAIN_CENTER } from "@/constants/map";
+import { DEFAULT_ZOOM, SPAIN_BOUNDS, SPAIN_CENTER } from "@/constants/map";
 import {
     Camera,
     MapView as MLMapView,
@@ -348,6 +348,12 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
             longitude={SPAIN_CENTER.longitude}
             latitude={SPAIN_CENTER.latitude}
             zoom={DEFAULT_ZOOM}
+            maxBounds={[
+              SPAIN_BOUNDS.west,
+              SPAIN_BOUNDS.south,
+              SPAIN_BOUNDS.east,
+              SPAIN_BOUNDS.north,
+            ]}
           />
 
           {showUserLocation && <UserLocation visible={true} />}
