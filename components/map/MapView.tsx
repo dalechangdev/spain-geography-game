@@ -88,12 +88,14 @@ export interface SpainMapViewProps {
   children?: React.ReactNode;
 }
 
-// Free tile style URLs
-const MAP_STYLES = {
-  standard: "https://demotiles.maplibre.org/style.json", // MapLibre demo tiles
-  // Alternative free options:
-  // standard: 'https://tiles.openfreemap.org/styles/liberty', // OpenFreeMap
-};
+// ICGC (Institut Cartogràfic i Geològic de Catalunya) style URLs – same as MapICGC GL JS
+// https://github.com/OpenICGC/mapicgc-gl-js – use style URLs with MapLibre (no web library in RN)
+const ICGC_STYLES = {
+  standard: "https://geoserveis.icgc.cat/styles/icgc_mapa_base_topografic.json",
+  satellite: "https://geoserveis.icgc.cat/styles/icgc_orto_estandard.json",
+  hybrid: "https://geoserveis.icgc.cat/styles/icgc_orto_hibrida.json",
+  terrain: "https://geoserveis.icgc.cat/styles/icgc_mapa_base_topografic.json",
+} as const;
 
 /**
  * Main map component for Spain geography quiz app
@@ -199,7 +201,7 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
         <MLMapView
           ref={mapRef}
           style={[styles.map, style]}
-          mapStyle={MAP_STYLES.standard}
+          mapStyle={ICGC_STYLES[mapType]}
           onPress={handlePress}
           onRegionDidChange={handleRegionDidChange}
           dragPan={interactive}
