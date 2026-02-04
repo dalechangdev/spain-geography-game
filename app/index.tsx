@@ -1,12 +1,15 @@
-import { StyleSheet, View, Text, SafeAreaView } from "react-native";
-import { SpainMapView, SpainMapViewRef } from "@/components/map";
-import { MapControls } from "@/components/map";
+import { MapControls, SpainMapView, SpainMapViewRef } from "@/components/map";
 import { useRef } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Index() {
   const mapRef = useRef<SpainMapViewRef>(null);
 
-  const handleMapPress = (coordinate: { latitude: number; longitude: number }) => {
+  const handleMapPress = (coordinate: {
+    latitude: number;
+    longitude: number;
+  }) => {
     console.log("Map pressed at:", coordinate);
   };
 
@@ -15,14 +18,11 @@ export default function Index() {
   };
 
   const handleZoomIn = () => {
-    // Zoom in by reducing delta by 50%
-    // This is a simple implementation - you can enhance it later
-    console.log("Zoom in");
+    mapRef.current?.zoomIn();
   };
 
   const handleZoomOut = () => {
-    // Zoom out by increasing delta by 50%
-    console.log("Zoom out");
+    mapRef.current?.zoomOut();
   };
 
   return (
@@ -31,7 +31,7 @@ export default function Index() {
         <Text style={styles.title}>Spain Geography Quiz</Text>
         <Text style={styles.subtitle}>Tap on the map to get started</Text>
       </View>
-      
+
       <View style={styles.mapContainer}>
         <SpainMapView
           ref={mapRef}
@@ -39,7 +39,7 @@ export default function Index() {
           showUserLocation={false}
           mapType="standard"
         />
-        
+
         <MapControls
           onReset={handleReset}
           onZoomIn={handleZoomIn}
