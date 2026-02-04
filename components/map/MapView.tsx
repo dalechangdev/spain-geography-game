@@ -6,9 +6,11 @@ import {
     type CameraRef,
     type MapViewRef,
     type PressEvent,
+    type ViewStateChangeEvent,
 } from "@maplibre/maplibre-react-native";
 import React, {
     forwardRef,
+    useEffect,
     useImperativeHandle,
     useRef,
     useState,
@@ -97,6 +99,94 @@ const ICGC_STYLES = {
   terrain: "https://geoserveis.icgc.cat/styles/icgc_mapa_base_topografic.json",
 } as const;
 
+const BOUNDARY_LAYER_PATTERNS = [
+  "admin",
+  "boundary",
+  "border",
+  "limit",
+  "frontier",
+  "frontera",
+  "administratiu",
+  "administratius",
+  "limits",
+  "perimetre",
+  "country",
+  "state",
+  "region",
+  "comarca",
+];
+
+function isBoundaryLayer(layer: {
+  id?: string;
+  type?: string;
+  "source-layer"?: string;
+}): boolean {
+  const id = (layer.id ?? "").toLowerCase();
+  const sourceLayer = (layer["source-layer"] ?? "").toLowerCase();
+  const combined = `${id} ${sourceLayer}`;
+  return BOUNDARY_LAYER_PATTERNS.some((p) => combined.includes(p));
+}
+
+const ROAD_LAYER_PATTERNS = [
+  "road",
+  "highway",
+  "street",
+  "motorway",
+  "trunk",
+  "primary",
+  "secondary",
+  "tertiary",
+  "path",
+  "via",
+  "carretera",
+  "carrer",
+  "xarxa",
+  "viaria",
+  "transport",
+];
+
+function isRoadLayer(layer: {
+  id?: string;
+  type?: string;
+  "source-layer"?: string;
+}): boolean {
+  const id = (layer.id ?? "").toLowerCase();
+  const sourceLayer = (layer["source-layer"] ?? "").toLowerCase();
+  const combined = `${id} ${sourceLayer}`;
+  return ROAD_LAYER_PATTERNS.some((p) => combined.includes(p));
+}
+
+/** Fetches a MapLibre style and returns a copy with symbol (label), boundary, and road layers removed. */
+async function fetchStyleNoLabels(
+  styleUrl: string,
+): Promise<Record<string, unknown>> {
+  const res = await fetch(styleUrl);
+  if (!res.ok) throw new Error(`Style fetch failed: ${res.status}`);
+  const style = (await res.json()) as Record<string, unknown>;
+  const base = styleUrl.replace(/[^/]+$/, "");
+  const resolve = (v: string) =>
+    v.startsWith("http") ? v : new URL(v, base).href;
+
+  if (style.sprite && typeof style.sprite === "string") {
+    style.sprite = resolve(style.sprite);
+  }
+  if (style.glyphs && typeof style.glyphs === "string") {
+    style.glyphs = resolve(style.glyphs);
+  }
+
+  const layers =
+    (style.layers as {
+      type?: string;
+      id?: string;
+      "source-layer"?: string;
+    }[]) ?? [];
+  style.layers = layers.filter(
+    (layer) =>
+      layer.type !== "symbol" && !isBoundaryLayer(layer) && !isRoadLayer(layer),
+  );
+  return style;
+}
+
 /**
  * Main map component for Spain geography quiz app
  *
@@ -119,12 +209,41 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
   ) => {
     const mapRef = useRef<MapViewRef>(null);
     const cameraRef = useRef<CameraRef>(null);
-    const [currentRegion] = useState<Region>({
+    const [currentRegion, setCurrentRegion] = useState<Region>({
       latitude: SPAIN_CENTER.latitude,
       longitude: SPAIN_CENTER.longitude,
       latitudeDelta: 8.0,
       longitudeDelta: 8.0,
     });
+    const zoomRef = useRef(DEFAULT_ZOOM);
+    const styleCacheRef = useRef<Record<string, Record<string, unknown>>>({});
+    const [styleNoLabels, setStyleNoLabels] = useState<Record<
+      string,
+      unknown
+    > | null>(null);
+
+    const styleUrl = ICGC_STYLES[mapType];
+    useEffect(() => {
+      const cached = styleCacheRef.current[styleUrl];
+      if (cached) {
+        setStyleNoLabels(cached);
+        return;
+      }
+      let cancelled = false;
+      fetchStyleNoLabels(styleUrl)
+        .then((style) => {
+          if (!cancelled) {
+            styleCacheRef.current[styleUrl] = style;
+            setStyleNoLabels(style);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setStyleNoLabels(null);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [styleUrl]);
 
     const handlePress = (event: NativeSyntheticEvent<PressEvent>) => {
       if (!onMapPress || !interactive) return;
@@ -133,9 +252,24 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
       onMapPress({ latitude, longitude });
     };
 
-    const handleRegionDidChange = async () => {
-      // MapLibre doesn't provide region directly, we track it via camera
-      onRegionChange?.(currentRegion);
+    const handleRegionDidChange = (
+      event: NativeSyntheticEvent<ViewStateChangeEvent>,
+    ) => {
+      const { latitude, longitude, zoom, bounds } = event.nativeEvent;
+      zoomRef.current = zoom;
+      const [west, south, east, north] = bounds;
+      setCurrentRegion({
+        latitude,
+        longitude,
+        latitudeDelta: north - south,
+        longitudeDelta: east - west,
+      });
+      onRegionChange?.({
+        latitude,
+        longitude,
+        latitudeDelta: north - south,
+        longitudeDelta: east - west,
+      });
     };
 
     /**
@@ -170,21 +304,19 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
     };
 
     const zoomIn = () => {
-      mapRef.current?.getZoom().then((zoom) => {
-        const nextZoom = Math.min(zoom + 1, MAX_ZOOM);
-        if (nextZoom > zoom) {
-          cameraRef.current?.zoomTo(nextZoom, { duration: 200 });
-        }
-      });
+      const zoom = zoomRef.current;
+      const nextZoom = Math.min(zoom + 1, MAX_ZOOM);
+      if (nextZoom > zoom) {
+        cameraRef.current?.zoomTo(nextZoom, { duration: 200 });
+      }
     };
 
     const zoomOut = () => {
-      mapRef.current?.getZoom().then((zoom) => {
-        const nextZoom = Math.max(zoom - 1, MIN_ZOOM);
-        if (nextZoom < zoom) {
-          cameraRef.current?.zoomTo(nextZoom, { duration: 200 });
-        }
-      });
+      const zoom = zoomRef.current;
+      const nextZoom = Math.max(zoom - 1, MIN_ZOOM);
+      if (nextZoom < zoom) {
+        cameraRef.current?.zoomTo(nextZoom, { duration: 200 });
+      }
     };
 
     // Expose methods via ref
@@ -201,7 +333,7 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
         <MLMapView
           ref={mapRef}
           style={[styles.map, style]}
-          mapStyle={ICGC_STYLES[mapType]}
+          mapStyle={(styleNoLabels ?? styleUrl) as string | object}
           onPress={handlePress}
           onRegionDidChange={handleRegionDidChange}
           dragPan={interactive}
