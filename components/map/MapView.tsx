@@ -24,6 +24,7 @@ import {
     ViewStyle,
 } from "react-native";
 import spainAdminData from "@/data/spain-administrative-0.json";
+import spainAdminData2 from "@/data/spain-administrative-2.json";
 
 const MAPBOX_ACCESS_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
@@ -226,6 +227,7 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
       string,
       unknown
     > | null>(null);
+    const [hoveredFeatureId, setHoveredFeatureId] = useState<string | number | null>(null);
 
     const styleUrl = ICGC_STYLES[mapType];
     useEffect(() => {
@@ -325,6 +327,10 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
       }
     };
 
+    const getAdminDataForZoom = (zoom: number) => {
+      return zoom < 7 ? spainAdminData : spainAdminData2;
+    };
+
     // Expose methods via ref
     useImperativeHandle(ref, () => ({
       resetToSpain,
@@ -362,12 +368,22 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
             ]}
           />
 
-          <ShapeSource id="spain-admin" shape={spainAdminData as any}>
+          <ShapeSource
+            id="spain-admin"
+            shape={getAdminDataForZoom(zoomRef.current) as any}
+            onPress={(feature) => {
+              if (hoveredFeatureId === feature.id) {
+                setHoveredFeatureId(null);
+              } else {
+                setHoveredFeatureId(feature.id);
+              }
+            }}
+          >
             <FillLayer
               id="spain-admin-fill"
               style={{
                 fillColor: "#088",
-                fillOpacity: 0.1,
+                fillOpacity: hoveredFeatureId ? 0.05 : 0.1,
               }}
             />
           </ShapeSource>
