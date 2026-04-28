@@ -247,49 +247,6 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
       };
     }, [styleUrl]);
 
-    // Add Mapbox tileset source and layer once style is loaded
-    useEffect(() => {
-      if (!styleNoLabels || !mapRef.current || !MAPBOX_ACCESS_TOKEN) return;
-
-      const addTileset = async () => {
-        try {
-          const map = mapRef.current;
-          if (!map) return;
-
-          // Add the Mapbox tileset source
-          const sourceId = "spain-gadm";
-          const layerId = "spain-gadm-1";
-
-          // Check if source already exists
-          if (!map.getSource(sourceId)) {
-            map.addSource(sourceId, {
-              type: "vector",
-              url: `mapbox://dalechangdev.2hmxzvwx?access_token=${MAPBOX_ACCESS_TOKEN}`,
-            });
-          }
-
-          // Check if layer already exists
-          if (!map.getLayer(layerId)) {
-            map.addLayer({
-              id: layerId,
-              type: "fill",
-              source: sourceId,
-              "source-layer": "spain-gadm-1",
-              paint: {
-                "fill-color": "#088",
-                "fill-opacity": 0.1,
-              },
-            });
-          }
-        } catch (error) {
-          console.error("Error adding tileset:", error);
-        }
-      };
-
-      // Small delay to ensure map is fully ready
-      const timer = setTimeout(addTileset, 100);
-      return () => clearTimeout(timer);
-    }, [styleNoLabels]);
 
     const handlePress = (event: NativeSyntheticEvent<PressEvent>) => {
       if (!onMapPress || !interactive) return;
