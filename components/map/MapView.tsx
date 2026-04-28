@@ -1,7 +1,9 @@
 import { DEFAULT_ZOOM, SPAIN_BOUNDS, SPAIN_CENTER } from "@/constants/map";
 import {
     Camera,
+    FillLayer,
     MapView as MLMapView,
+    ShapeSource,
     UserLocation,
     type CameraRef,
     type MapViewRef,
@@ -21,6 +23,7 @@ import {
     View,
     ViewStyle,
 } from "react-native";
+import spainAdminData from "@/data/spain-administrative-0.json";
 
 const MAPBOX_ACCESS_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
@@ -358,6 +361,16 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
               SPAIN_BOUNDS.north,
             ]}
           />
+
+          <ShapeSource id="spain-admin" shape={spainAdminData as any}>
+            <FillLayer
+              id="spain-admin-fill"
+              style={{
+                fillColor: "#088",
+                fillOpacity: 0.1,
+              }}
+            />
+          </ShapeSource>
 
           {showUserLocation && <UserLocation visible={true} />}
 
