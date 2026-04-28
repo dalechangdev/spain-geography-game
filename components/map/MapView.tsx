@@ -25,6 +25,7 @@ import {
 } from "react-native";
 import spainAdminData from "@/data/spain-administrative-0.json";
 import spainAdminData2 from "@/data/spain-administrative-2.json";
+import spainAdminData3 from "@/data/spain-administrative-3.json";
 
 const MAPBOX_ACCESS_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
@@ -328,7 +329,9 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
     };
 
     const getAdminDataForZoom = (zoom: number) => {
-      return zoom < 7 ? spainAdminData : spainAdminData2;
+      if (zoom < 7) return spainAdminData;
+      if (zoom < 11) return spainAdminData2;
+      return spainAdminData3;
     };
 
     // Expose methods via ref
