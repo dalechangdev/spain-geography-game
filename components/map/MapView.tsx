@@ -1,4 +1,9 @@
-import { DEFAULT_ZOOM, SPAIN_BOUNDS, SPAIN_CENTER } from "@/constants/map";
+import { DEFAULT_ZOOM, SPAIN_CENTER } from "@/constants/map";
+import spainAdminData from "@/data/spain-administrative-0.json";
+import spainAdminData1 from "@/data/spain-administrative-1.json";
+import spainAdminData2 from "@/data/spain-administrative-2.json";
+import spainAdminData3 from "@/data/spain-administrative-3.json";
+import spainAdminData4 from "@/data/spain-administrative-4.json";
 import {
     Camera,
     FillLayer,
@@ -23,10 +28,6 @@ import {
     View,
     ViewStyle,
 } from "react-native";
-import spainAdminData from "@/data/spain-administrative-0.json";
-import spainAdminData2 from "@/data/spain-administrative-2.json";
-import spainAdminData3 from "@/data/spain-administrative-3.json";
-import spainAdminData4 from "@/data/spain-administrative-4.json";
 
 const MAPBOX_ACCESS_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
@@ -229,7 +230,9 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
       string,
       unknown
     > | null>(null);
-    const [hoveredFeatureId, setHoveredFeatureId] = useState<string | number | null>(null);
+    const [hoveredFeatureId, setHoveredFeatureId] = useState<
+      string | number | null
+    >(null);
 
     const styleUrl = ICGC_STYLES[mapType];
     useEffect(() => {
@@ -253,7 +256,6 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
         cancelled = true;
       };
     }, [styleUrl]);
-
 
     const handlePress = (event: NativeSyntheticEvent<PressEvent>) => {
       if (!onMapPress || !interactive) return;
@@ -330,9 +332,10 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
     };
 
     const getAdminDataForZoom = (zoom: number) => {
-      if (zoom < 7) return spainAdminData;
-      if (zoom < 11) return spainAdminData2;
-      if (zoom < 14) return spainAdminData3;
+      if (zoom < 3) return spainAdminData;
+      if (zoom < 5) return spainAdminData1;
+      if (zoom < 7) return spainAdminData2;
+      if (zoom < 9) return spainAdminData3;
       return spainAdminData4;
     };
 
@@ -365,12 +368,6 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
             longitude={SPAIN_CENTER.longitude}
             latitude={SPAIN_CENTER.latitude}
             zoom={DEFAULT_ZOOM}
-            maxBounds={[
-              SPAIN_BOUNDS.west,
-              SPAIN_BOUNDS.south,
-              SPAIN_BOUNDS.east,
-              SPAIN_BOUNDS.north,
-            ]}
           />
 
           <ShapeSource
