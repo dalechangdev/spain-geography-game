@@ -7,14 +7,17 @@ import spainAdminData4 from "@/data/spain-administrative-4.json";
 import {
     Camera,
     FillLayer,
+    LineLayer,
     MapView as MLMapView,
     ShapeSource,
     UserLocation,
     type CameraRef,
     type MapViewRef,
     type PressEvent,
+    type PressEventWithFeatures,
     type ViewStateChangeEvent,
 } from "@maplibre/maplibre-react-native";
+import type { Feature } from "geojson";
 import React, {
     forwardRef,
     useEffect,
@@ -50,6 +53,7 @@ export interface SpainMapViewRef {
   getCurrentRegion: () => Region;
   zoomIn: () => void;
   zoomOut: () => void;
+  clearSelection: () => void;
 }
 
 export interface SpainMapViewProps {
@@ -92,6 +96,12 @@ export interface SpainMapViewProps {
    * Custom map style
    */
   style?: ViewStyle;
+
+  /**
+   * Callback when user taps a geographic feature on the map.
+   * Called with null when a feature is deselected or admin level changes.
+   */
+  onFeaturePress?: (properties: Record<string, any> | null) => void;
 
   /**
    * Children components (markers, layers, etc.)
@@ -165,6 +175,14 @@ function isRoadLayer(layer: {
   return ROAD_LAYER_PATTERNS.some((p) => combined.includes(p));
 }
 
+function getAdminLevelForZoom(zoom: number): number {
+  if (zoom < 3) return 0;
+  if (zoom < 5) return 1;
+  if (zoom < 7) return 2;
+  if (zoom < 9) return 3;
+  return 4;
+}
+
 /** Fetches a MapLibre style and returns a copy with symbol (label), boundary, and road layers removed. */
 async function fetchStyleNoLabels(
   styleUrl: string,
@@ -212,6 +230,7 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
       interactive = true,
       containerStyle,
       style,
+      onFeaturePress,
       children,
     },
     ref,
@@ -225,14 +244,13 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
       longitudeDelta: 8.0,
     });
     const zoomRef = useRef(DEFAULT_ZOOM);
+    const lastAdminLevelRef = useRef(getAdminLevelForZoom(DEFAULT_ZOOM));
     const styleCacheRef = useRef<Record<string, Record<string, unknown>>>({});
     const [styleNoLabels, setStyleNoLabels] = useState<Record<
       string,
       unknown
     > | null>(null);
-    const [hoveredFeatureId, setHoveredFeatureId] = useState<
-      string | number | null
-    >(null);
+    const [selectedFeature, setSelectedFeature] = useState<Feature | null>(null);
 
     const styleUrl = ICGC_STYLES[mapType];
     useEffect(() => {
@@ -268,6 +286,12 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
       event: NativeSyntheticEvent<ViewStateChangeEvent>,
     ) => {
       const { latitude, longitude, zoom, bounds } = event.nativeEvent;
+      const newAdminLevel = getAdminLevelForZoom(zoom);
+      if (newAdminLevel !== lastAdminLevelRef.current) {
+        lastAdminLevelRef.current = newAdminLevel;
+        setSelectedFeature(null);
+        onFeaturePress?.(null);
+      }
       zoomRef.current = zoom;
       const [west, south, east, north] = bounds;
       setCurrentRegion({
@@ -339,6 +363,10 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
       return spainAdminData4;
     };
 
+    const clearSelection = () => {
+      setSelectedFeature(null);
+    };
+
     // Expose methods via ref
     useImperativeHandle(ref, () => ({
       resetToSpain,
@@ -346,6 +374,7 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
       getCurrentRegion: () => currentRegion,
       zoomIn,
       zoomOut,
+      clearSelection,
     }));
 
     return (
@@ -373,11 +402,15 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
           <ShapeSource
             id="spain-admin"
             shape={getAdminDataForZoom(zoomRef.current) as any}
-            onPress={(feature) => {
-              if (hoveredFeatureId === feature.id) {
-                setHoveredFeatureId(null);
+            onPress={(event: NativeSyntheticEvent<PressEventWithFeatures>) => {
+              const feature = event.nativeEvent.features[0];
+              if (!feature) return;
+              if (selectedFeature?.id === feature.id && selectedFeature?.properties?.GID_4 === feature.properties?.GID_4) {
+                setSelectedFeature(null);
+                onFeaturePress?.(null);
               } else {
-                setHoveredFeatureId(feature.id);
+                setSelectedFeature(feature);
+                onFeaturePress?.(feature.properties ?? {});
               }
             }}
           >
@@ -385,10 +418,23 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
               id="spain-admin-fill"
               style={{
                 fillColor: "#088",
-                fillOpacity: hoveredFeatureId ? 0.05 : 0.1,
+                fillOpacity: 0.1,
               }}
             />
           </ShapeSource>
+
+          {selectedFeature && (
+            <ShapeSource id="selected-feature" shape={selectedFeature as any}>
+              <FillLayer
+                id="selected-feature-fill"
+                style={{ fillColor: "#1E40AF", fillOpacity: 0.35 }}
+              />
+              <LineLayer
+                id="selected-feature-outline"
+                style={{ lineColor: "#1E40AF", lineWidth: 2 }}
+              />
+            </ShapeSource>
+          )}
 
           {showUserLocation && <UserLocation visible={true} />}
 
