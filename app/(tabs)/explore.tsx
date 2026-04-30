@@ -1,3 +1,4 @@
+import { AdBanner } from "@/components/AdBanner";
 import { FeatureDetailPanel } from "@/components/FeatureDetailPanel";
 import {
     MapControls,
@@ -39,6 +40,7 @@ export default function ExploreScreen() {
           onDismiss={handleDismiss}
         />
       </View>
+      <AdBanner />
     </SafeAreaView>
   );
 }
