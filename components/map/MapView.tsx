@@ -14,7 +14,6 @@ import {
     type CameraRef,
     type MapViewRef,
     type PressEvent,
-    type PressEventWithFeatures,
     type ViewStateChangeEvent,
 } from "@maplibre/maplibre-react-native";
 import type { Feature } from "geojson";
@@ -26,11 +25,52 @@ import React, {
     useState,
 } from "react";
 import {
+    Animated,
+    Easing,
     NativeSyntheticEvent,
     StyleSheet,
     View,
     ViewStyle,
 } from "react-native";
+
+const RIPPLE_DIAMETER = 72;
+
+function PressRipple({ x, y }: { x: number; y: number }) {
+  const scale = useRef(new Animated.Value(0.2)).current;
+  const opacity = useRef(new Animated.Value(0.55)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(scale, {
+        toValue: 1,
+        duration: 380,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 360,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [scale, opacity]);
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.ripple,
+        {
+          left: x - RIPPLE_DIAMETER / 2,
+          top: y - RIPPLE_DIAMETER / 2,
+          transform: [{ scale }],
+          opacity,
+        },
+      ]}
+    />
+  );
+}
 
 const MAPBOX_ACCESS_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
@@ -183,6 +223,17 @@ function getAdminLevelForZoom(zoom: number): number {
   return 4;
 }
 
+function getFeatureGid(properties: Record<string, any>): string | null {
+  return (
+    properties.GID_4 ??
+    properties.GID_3 ??
+    properties.GID_2 ??
+    properties.GID_1 ??
+    properties.GID_0 ??
+    null
+  );
+}
+
 /** Fetches a MapLibre style and returns a copy with symbol (label), boundary, and road layers removed. */
 async function fetchStyleNoLabels(
   styleUrl: string,
@@ -251,6 +302,7 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
       unknown
     > | null>(null);
     const [selectedFeature, setSelectedFeature] = useState<Feature | null>(null);
+    const [ripple, setRipple] = useState<{ x: number; y: number; key: number } | null>(null);
 
     const styleUrl = ICGC_STYLES[mapType];
     useEffect(() => {
@@ -275,11 +327,39 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
       };
     }, [styleUrl]);
 
-    const handlePress = (event: NativeSyntheticEvent<PressEvent>) => {
-      if (!onMapPress || !interactive) return;
+    const handlePress = async (event: NativeSyntheticEvent<PressEvent>) => {
+      if (!interactive) return;
 
-      const { latitude, longitude } = event.nativeEvent;
-      onMapPress({ latitude, longitude });
+      const { latitude, longitude, locationX, locationY } = event.nativeEvent;
+
+      setRipple({ x: locationX, y: locationY, key: Date.now() });
+      setTimeout(() => setRipple(null), 500);
+
+      onMapPress?.({ latitude, longitude });
+
+      if (!onFeaturePress) return;
+      const result = await mapRef.current?.queryRenderedFeatures(
+        { longitude, latitude },
+        { layers: ["spain-admin-fill"] },
+      );
+      const features = result?.features ?? [];
+      if (features.length === 0) {
+        setSelectedFeature(null);
+        onFeaturePress(null);
+        return;
+      }
+      const feature = features[0] as Feature;
+      const gid = getFeatureGid(feature.properties ?? {});
+      const currentGid = selectedFeature
+        ? getFeatureGid(selectedFeature.properties ?? {})
+        : null;
+      if (gid && gid === currentGid) {
+        setSelectedFeature(null);
+        onFeaturePress(null);
+      } else {
+        setSelectedFeature(feature);
+        onFeaturePress(feature.properties ?? {});
+      }
     };
 
     const handleRegionDidChange = (
@@ -402,24 +482,10 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
           <ShapeSource
             id="spain-admin"
             shape={getAdminDataForZoom(zoomRef.current) as any}
-            onPress={(event: NativeSyntheticEvent<PressEventWithFeatures>) => {
-              const feature = event.nativeEvent.features[0];
-              if (!feature) return;
-              if (selectedFeature?.id === feature.id && selectedFeature?.properties?.GID_4 === feature.properties?.GID_4) {
-                setSelectedFeature(null);
-                onFeaturePress?.(null);
-              } else {
-                setSelectedFeature(feature);
-                onFeaturePress?.(feature.properties ?? {});
-              }
-            }}
           >
             <FillLayer
               id="spain-admin-fill"
-              style={{
-                fillColor: "#088",
-                fillOpacity: 0.1,
-              }}
+              style={{ fillColor: "#088", fillOpacity: 0.1 }}
             />
           </ShapeSource>
 
@@ -440,6 +506,8 @@ export const SpainMapView = forwardRef<SpainMapViewRef, SpainMapViewProps>(
 
           {children}
         </MLMapView>
+
+        {ripple && <PressRipple key={ripple.key} x={ripple.x} y={ripple.y} />}
       </View>
     );
   },
@@ -454,6 +522,14 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  ripple: {
+    position: "absolute",
+    width: RIPPLE_DIAMETER,
+    height: RIPPLE_DIAMETER,
+    borderRadius: RIPPLE_DIAMETER / 2,
+    backgroundColor: "#1E40AF",
+    pointerEvents: "none",
   },
 });
 
