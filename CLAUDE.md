@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Before ingesting the rest of this file, keep the following in mind:
+
+- Don't assume. Don't hide confusion. Surface tradeoffs
+- Minimum code that solves the problem. Nothing speculative
+- Touch only what you must. Clean up only your own mess
+- Define success criteria. Loop until verified
+
 ## Project Overview
 
 Spain Geography Quiz is an Expo-based React Native app for learning Spanish geography through interactive map-based quizzes. Users can quiz themselves on autonomous regions, provinces, cities, rivers, mountains, and other geographic features via multiple-choice, point-and-identify, and name-that-place question types.
@@ -20,6 +27,7 @@ Uses **MapLibre GL** for the map component, **Zustand** for state management, an
 ## Project Structure
 
 ### Key Directories
+
 - **`app/`**: Expo Router file-based routing (entry points)
 - **`components/map/`**: Map components (SpainMapView, MapControls, MapLayers, QuizMarker)
 - **`store/`**: Zustand stores for quiz and progress state
@@ -30,6 +38,7 @@ Uses **MapLibre GL** for the map component, **Zustand** for state management, an
 - **`types/`**: TypeScript definitions in `geography.ts`
 
 ### Data Files
+
 - **`data/spain-administrative-*.json`**: GeoJSON files for different administrative levels (0=country, 1=regions, 2=provinces, 3=?, 4=municipalities)
 - **`data/example-locations.json`**: Sample location coordinates with metadata
 - **`data/example-questions.json`**: Pre-generated questions for testing
@@ -38,11 +47,14 @@ Uses **MapLibre GL** for the map component, **Zustand** for state management, an
 ## Architecture & Key Patterns
 
 ### State Management
+
 Uses **Zustand** for two main stores:
+
 - **`store/quiz-store.ts`** (useQuizStore): Manages active quiz—current question, score, answers, streaks. Call `startQuiz()` with questions, then `answerQuestion()` to submit answers. Quiz state includes scoring logic (base 10 points × difficulty multiplier + time bonus + streak bonus).
 - **`store/progress-store.ts`** (useProgressStore): Tracks user progress—total quizzes, accuracy, category stats, achievements, study streaks. Loads/saves from AsyncStorage.
 
 ### Quiz Flow
+
 1. Generate or fetch `Question[]` from data
 2. Call `useQuizStore.startQuiz(category, mode, questions, settings)`
 3. Render current question via `getCurrentQuestion()`
@@ -53,13 +65,17 @@ Uses **Zustand** for two main stores:
 6. On quiz complete, call `useProgressStore.addQuizResult()` to persist stats
 
 ### Question Generation
+
 **`utils/quiz-generator.ts`** exports:
+
 - `generateQuestionFromLocation()`: Creates a single Question from a Location
 - `generateQuestions()`: Batch-creates multiple questions with progressive difficulty
 - Auto-generates multiple-choice options, Spanish translations, hints, appropriate zoom levels, and distance tolerances
 
 ### Map Component (MapLibre)
+
 **`components/map/index.ts`** exports SpainMapView (ref-forwarded) with:
+
 - `ref.resetToSpain()`, `ref.zoomIn()`, `ref.zoomOut()` methods
 - `onMapPress` callback with `{ latitude, longitude }`
 - Props: `showUserLocation`, `mapType` ('standard', 'satellite', 'terrain')
@@ -69,7 +85,20 @@ Uses **Zustand** for two main stores:
 See `constants/map.ts` for ZOOM_LEVELS and TOLERANCES (distance for validating point-and-identify answers).
 
 ## Type Definitions
+
 **`types/geography.ts`** defines all core types:
+mOut()` methods
+- `onMapPress` callback with `{ latitude, longitude }`
+- Props: `showUserLocation`, `mapType` ('standard', 'satellite', 'terrain')
+- Renders GeoJSON layers via MapLayers component; quizMarkers via QuizMarker component
+- Bounds: north 44, south 36, east 4.5, west -9.5; default zoom 5 shows all of Spain
+
+See `constants/map.ts` for ZOOM_LEVELS and TOLERANCES (distance for validating point-and-identify answers).
+
+## Type Definitions
+
+**`types/geography.ts`** defines all core types:
+
 - `QuizCategory`: 'autonomous-regions', 'provinces', 'cities', 'municipalities', 'rivers', 'mountain-ranges', 'mountains', 'lakes', 'islands', 'coastlines'
 - `Location`: id, name, nameEs, type, coordinates [lon, lat], optional geojson (for polygons), region, province, metadata (population, elevation, etc.)
 - `Question`: id, category, type ('multiple-choice' | 'point-and-identify' | 'name-that-place'), question text, correctAnswer (location id), options (for MC), difficulty 1–5, hint, coordinates, zoomLevel, tolerance (meters for point validation)
